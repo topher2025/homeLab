@@ -3,48 +3,67 @@ from pydhcplib.dhcp_network import DhcpServer
 from pydhcplib.type_ipv4 import ipv4
 from config import DHCP_RANGE
 from dns import PythonDnsServer
+import ipaddress
 
 
-DHCP_OPTIONS = {
-    "server_listen_port": 67,
-    "client_listen_port": 68,
-    "listen_address": "0.0.0.0",
-}
+
+
 
 class PythonDhcpServer(DhcpServer):
-    def __init__(self, options, dns):
-        super().__init__(options)
-        self.pool_start = ipv4(DHCP_RANGE[0])
-        self.pool_end = ipv4(DHCP_RANGE[1])
-        self.leases = {}
+    def __init__(self, options, dns, logger):
+        self.logger = logger
         self.dns = dns
+        self.leases = {}
+
+        try:
+            base_init = getattr(super(), "__init__", None)
+            if callable(base_init):
+                base_init(options)
+            self.pool_start = ipv4(DHCP_RANGE[0])
+            self.client_port = options.get("client_listen_port", 68)
+        except Exception:
+            self.logger.exception("Failed to initialize DHCP server")
+            raise
+
+    def _send_broadcast(self, packet, action):
+        try:
+            self.SendDhcpPacketTo(packet, ipv4("255.255.255.255"), self.client_port)
+        except Exception:
+            self.logger.exception("Failed to send DHCP %s response", action)
+            raise
 
     def HandleDhcpDiscover(self, packet):
-        offer = self.CreateDhcpOffer(packet)
-        self.SendDhcpPacketTo(offer, ipv4("255.255.255.255"))
+        try:
+            offer = self.CreateDhcpOffer(packet)
+            self._send_broadcast(offer, "discover")
+            self.logger.info("Received DHCP Discover")
+        except Exception:
+            self.logger.exception("Failed to handle DHCP Discover")
 
     def HandleDhcpRequest(self, packet):
-        ack = self.CreateDhcpAck(packet)
-        self.SendDhcpPacketTo(ack, ipv4("255.255.255.255"))
+        try:
+            ack = self.CreateDhcpAck(packet)
+            self._send_broadcast(ack, "request")
+            self.logger.info("Received DHCP Request")
 
-        hostname = packet.GetOption("host_name")
-        yiaddr = packet.GetOption("yiaddr")
-        if hostname and yiaddr:
-            name = hostname.decode()
-            ip = ".".join(map(str, yiaddr))
-            self.dns.add_record(hostname=name, ip=ip)
+            hostname = packet.GetOption("host_name")
+            yiaddr = ack.GetOption("yiaddr")
+            ip = str(ipaddress.IPv4Address(yiaddr))
+            if hostname:
+                name = hostname.decode()
+                self.logger.info("Gave %s to %s", ip, name)
+                self.dns.add_record(hostname=str(name), ip=ip)
+            else:
+                self.logger.warning("DHCP Request was missing hostname")
+                self.logger.info("Gave %s", ip)
+        except Exception:
+            self.logger.exception("Failed to handle DHCP Request")
 
+    def start_dhcp(self):
+        try:
+            self.BindToAddress()
+            self.logger.info("Started DHCP server")
+            self.Listen()
+        except Exception:
+            self.logger.exception("DHCP server stopped")
 
-def create_dhcp_server(dns=None):
-    dns_server = dns or PythonDnsServer()
-    return PythonDhcpServer(DHCP_OPTIONS, dns_server)
-
-
-def start_dhcp():
-    server = create_dhcp_server()
-    server.BindToAddress()
-    server.Listen()
-
-
-if __name__ == "__main__":
-    start_dhcp()
