@@ -1,0 +1,24 @@
+[Unit]
+Description=Lab NAT Server Built in Python
+After=network-online.target python-dns.service python-dhcp.service
+Wants=network-online.target python-dns-service python-dhcp.service
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/lab/current/router
+ExecStart=/srv/lab/current/router/venv/bin/python nat.py
+
+User=labbot
+Group=lab-managers
+
+AmbientCapabilities=CAP_NET_BIND_SERVICE CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_NET_RAW
+NoNewPrivileges=true
+
+Restart=always
+RestartSec=2
+
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
