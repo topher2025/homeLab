@@ -13,15 +13,21 @@ Stuff for my home lab
     sudo groupadd lab-managers
     sudo useradd -m -s /bin/bash labbot
     sudo usermod -aG lab-managers labbot
+    sudo passwd labbot
     ```
 3. Create Directory Structure
     ```bash
     sudo mkdir -p /srv/lab/releases
-    sudo mkdir -p /srv/lab/current/router
+    sudo mkdir -p /srv/lab/current
     sudo chown -R labbot:lab-managers /srv/lab
-    sudo chmod -R 750 /srv/lab
+    sudo chmod -R u+rwx /srv/lab
     ```
-4. Load Release
+4. SSH into Router as labbot
+    ```bash
+    exit
+    ssh labbot@router.lab
+    ```
+5. Load Release
     ```bash
     # SCP folder transfer from dev machine to router
     scp -r JohnDoe@192.168.0.5:/home/Documents/Github/lab/releases/1.0.1 /srv/lab/releases/1.0.1/
@@ -29,29 +35,33 @@ Stuff for my home lab
     git clone --depth 1 --branch v1.0.1 https://github.com/topher2025/homeLab.git /srv/lab/releases/1.0.1/
     ```
     You'll probably also need to change the [iface names](#network-interfaces) and/or the [IP addresses](#ip-addresses)
-5. Install Dependencies
+6. Activate Symlink
+    ```bash
+    ln -s /srv/lab/releases/1.0.1 /srv/lab/current/src
+    ```
+7. Install Dependencies
     ```bash
     python3 -m venv /srv/lab/current/router/venv
     source /srv/lab/current/router/venv/bin/activate
-    pip install -r requirements.txt
+    pip install -r /srv/lab/current/src/router/requirements.txt
     ```
-
-5. Activate Symlink
+9. SSH in as Root
     ```bash
-    ln -sfn /srv/lab/releases/1.0.1 /srv/lab/current
-    ```
-6. Move Systemd Service Files
+    exit
+    ssh user@router.lab
+    ````
+8. Move Systemd Service Files
     ```bash
-    sudo cp /srv/lab/current/router/systemd/*.service /etc/systemd/system
+    sudo cp /srv/lab/current/src/router/systemd/*.service /etc/systemd/system
     sudo systemctl daemon-reload
     ```
-7. Enable Services
+9. Enable Services
     ```bash
     sudo systemctl enable python-dns.service
     sudo systemctl enable python-dhcp.service
     sudo systemctl enable python-nat.service
     ```
-8. Start Services
+10. Start Services
     ```bash
     sudo systemctl start python-dns python-dhcp python-nat
     ```
@@ -59,7 +69,7 @@ Stuff for my home lab
 ### Updates:
 1. SSH into Router
     ```bash
-    ssh user@router.lab
+    ssh labbot@router.lab
     ```
 2. Load Release
     ```bash
@@ -70,7 +80,7 @@ Stuff for my home lab
     ```
 3. Update Symlink
     ```bash
-    ln -sfn /srv/lab/releases/1.0.2 /srv/lab/current
+    ln -sfn /srv/lab/releases/1.0.2 /srv/lab/current/src
     ```
     If you made changes to `config.py`, see [4. Changelogs](#changelogs)
 4. Reload Services

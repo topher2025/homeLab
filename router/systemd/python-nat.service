@@ -5,7 +5,7 @@ Wants=network-online.target python-dns-service python-dhcp.service
 
 [Service]
 Type=simple
-WorkingDirectory=/srv/lab/current/router
+WorkingDirectory=/srv/lab/current/src/router
 ExecStart=/srv/lab/current/router/venv/bin/python nat.py
 
 User=labbot

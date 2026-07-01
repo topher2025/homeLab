@@ -1,5 +1,5 @@
 # dhcp.py
-from simple_dhcp_server.dhcp import DHCPServer
+from pydhcplib.dhcp_network import DhcpServer
 from pydhcplib.type_ipv4 import ipv4
 from config import DHCP_RANGE
 from dns import PythonDnsServer
@@ -9,37 +9,32 @@ import ipaddress
 
 
 
-class PythonDhcpServer(DHCPServer):
+class PythonDhcpServer(DhcpServer):
     def __init__(self, options, dns, logger):
         self.logger = logger
         self.dns = dns
         self.leases = {}
 
         try:
-            pool_start = ipaddress.IPv4Address(DHCP_RANGE[0])
-            pool_end = ipaddress.IPv4Address(DHCP_RANGE[1])
-            pool = [str(ip) for ip in ipaddress.summarize_address_range(pool_start, pool_end)][0]
-            super().__init__(
-                listen_address=options.get("listen_address", "0.0.0.0"),
-                listen_port=options.get("server_port", 67),
-                offered_range_start=str(pool_start),
-                offered_range_end=str(pool_end),
-                subnet_mask=options.get("subnet_mask", "255.255.255.0"),
-                router=options.get("router", None),
-                dns_server=options.get("dns_server", None),
-            )
-
+            base_init = getattr(super(), "__init__", None)
+            if callable(base_init):
+                base_init(options)
+            self.pool_start = ipv4(DHCP_RANGE[0])
             self.client_port = options.get("client_listen_port", 68)
-            self.logger.info("DHCP server initialized")
         except Exception:
             self.logger.exception("Failed to initialize DHCP server")
             raise
 
-
+    def _send_broadcast(self, packet, action):
+        try:
+            self.SendDhcpPacketTo(packet, ipv4("255.255.255.255"), self.client_port)
+        except Exception:
+            self.logger.exception("Failed to send DHCP %s response", action)
+            raise
 
     def HandleDhcpDiscover(self, packet):
         try:
-            offer = self.build_offer(packet)
+            offer = self.CreateDhcpOffer(packet)
             self._send_broadcast(offer, "discover")
             self.logger.info("Received DHCP Discover")
         except Exception:

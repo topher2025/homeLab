@@ -157,7 +157,7 @@ class NATPython:
 def main():
     cfg = NatConfig()
     Setup.setup_logging(cfg)
-    logger = logging.getLogger("DNS")
+    logger = logging.getLogger("NAT")
     server = NATPython(cfg, logger)
 
     try:

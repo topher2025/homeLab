@@ -5,7 +5,7 @@ Wants=network-online.target redis-server.service
 
 [Service]
 Type=simple
-WorkingDirectory=/srv/lab/current/router
+WorkingDirectory=/srv/lab/current/src/router
 ExecStart=/srv/lab/current/router/venv/bin/python dns.py
 
 User=labbot
